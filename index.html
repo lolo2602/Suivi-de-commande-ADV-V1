@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi des Commandes ADV</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-section {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-section h3 {
+            color: #34495e;
+            margin-top: 0;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            resize: vertical;
+            height: 60px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn-success {
+            background-color: #27ae60;
+        }
+        .btn-success:hover {
+            background-color: #229954;
+        }
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tbody tr:hover {
+            background-color: #e8f4f8;
+        }
+        .status-saisie { background-color: #f39c12; color: white; padding: 3px 8px; border-radius: 3px; }
+        .status-en_cours { background-color: #3498db; color: white; padding: 3px 8px; border-radius: 3px; }
+        .status-livree { background-color: #27ae60; color: white; padding: 3px 8px; border-radius: 3px; }
+        .status-annulee { background-color: #e74c3c; color: white; padding: 3px 8px; border-radius: 3px; }
+        .gratuit { color: #27ae60; font-weight: bold; }
+        .payant { color: #e74c3c; font-weight: bold; }
+        .product-row {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .product-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        #produits-container {
+            margin-bottom: 20px;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background-color: #3498db;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+        }
+        .stat-card h4 {
+            margin: 0 0 10px 0;
+        }
+        .stat-card .number {
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Suivi des Commandes ADV</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <h4>Total Commandes</h4>
+                <div class="number" id="total-commandes">0</div>
+            </div>
+            <div class="stat-card" style="background-color: #f39c12;">
+                <h4>En cours</h4>
+                <div class="number" id="commandes-cours">0</div>
+            </div>
+            <div class="stat-card" style="background-color: #27ae60;">
+                <h4>Livrées</h4>
+                <div class="number" id="commandes-livrees">0</div>
+            </div>
+            <div class="stat-card" style="background-color: #e74c3c;">
+                <h4>Annulées</h4>
+                <div class="number" id="commandes-annulees">0</div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>🆕 Nouvelle Commande</h3>
+            <form id="commande-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="client">Client *</label>
+                        <input type="text" id="client" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="commercial">Commercial *</label>
+                        <select id="commercial" required>
+                            <option value="">Sélectionner un commercial</option>
+                            <option value="Jean Martin">Jean Martin</option>
+                            <option value="Marie Dupont">Marie Dupont</option>
+                            <option value="Pierre Bernard">Pierre Bernard</option>
+                            <option value="Sophie Leroy">Sophie Leroy</option>
+                            <option value="Thomas Moreau">Thomas Moreau</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="entrepot">Entrepôt d'expédition *</label>
+                        <select id="entrepot" required>
+                            <option value="">Sélectionner un entrepôt</option>
+                            <option value="Paris">Paris</option>
+                            <option value="Lyon">Lyon</option>
+                            <option value="Marseille">Marseille</option>
+                            <option value="Lille">Lille</option>
+                            <option value="Bordeaux">Bordeaux</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="date-livraison">Date de livraison estimée *</label>
+                        <input type="date" id="date-livraison" required>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>📦 Produits</h4>
+                    <div class="product-controls">
+                        <button type="button" class="btn" onclick="ajouterProduit()">+ Ajouter un produit</button>
+                    </div>
+                    <div id="produits-container">
+                        <!-- Les produits seront ajoutés ici dynamiquement -->
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="commentaire">Commentaire (optionnel)</label>
+                        <textarea id="commentaire" placeholder="Ajouter un commentaire sur cette commande..."></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success">✅ Enregistrer la commande</button>
+                <button type="button" class="btn" onclick="resetForm()">🔄 Réinitialiser</button>
+            </form>
+        </div>
+
+        <div class="table-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>📊 Liste des Commandes</h3>
+                <button class="btn btn-success" onclick="exporterExcel()" style="background-color: #27ae60;">
+                    📁 Exporter en Excel
+                </button>
+            </div>
+            <table id="commandes-table">
+                <thead>
+                    <tr>
+                        <th>Date saisie</th>
+                        <th>N° Commande</th>
+                        <th>Client</th>
+                        <th>Commercial</th>
+                        <th>Produits</th>
+                        <th>Entrepôt</th>
+                        <th>Date livraison</th>
+                        <th>Statut</th>
+                        <th>Commentaire</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="commandes-tbody">
+                    <!-- Les commandes seront ajoutées ici -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let commandes = [];
+        let nextCommandeNumber = 250000;
+        let produitCounter = 0;
+
+        // Initialiser avec la date d'aujourd'hui
+        document.getElementById('date-livraison').valueAsDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 jours
+
+        // Ajouter un produit au formulaire
+        function ajouterProduit() {
+            produitCounter++;
+            const container = document.getElementById('produits-container');
+            const produitDiv = document.createElement('div');
+            produitDiv.className = 'product-row';
+            produitDiv.id = `produit-${produitCounter}`;
+            
+            produitDiv.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SKU *</label>
+                        <input type="text" name="sku" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantité *</label>
+                        <input type="number" name="quantite" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type *</label>
+                        <select name="type" required>
+                            <option value="">Sélectionner</option>
+                            <option value="payant">Payant</option>
+                            <option value="gratuit">Gratuit</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: end;">
+                        <button type="button" class="delete-btn" onclick="supprimerProduit(${produitCounter})">🗑️ Supprimer</button>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(produitDiv);
+        }
+
+        // Supprimer un produit
+        function supprimerProduit(id) {
+            const produit = document.getElementById(`produit-${id}`);
+            if (produit) {
+                produit.remove();
+            }
+        }
+
+        // Réinitialiser le formulaire
+        function resetForm() {
+            document.getElementById('commande-form').reset();
+            document.getElementById('produits-container').innerHTML = '';
+            produitCounter = 0;
+            ajouterProduit(); // Ajouter un produit par défaut
+        }
+
+        // Soumettre le formulaire
+        document.getElementById('commande-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const client = document.getElementById('client').value;
+            const commercial = document.getElementById('commercial').value;
+            const entrepot = document.getElementById('entrepot').value;
+            const dateLivraison = document.getElementById('date-livraison').value;
+            const commentaire = document.getElementById('commentaire').value;
+            
+            // Récupérer les produits
+            const produits = [];
+            const produitsRows = document.querySelectorAll('.product-row');
+            
+            produitsRows.forEach(row => {
+                const sku = row.querySelector('input[name="sku"]').value;
+                const quantite = row.querySelector('input[name="quantite"]').value;
+                const type = row.querySelector('select[name="type"]').value;
+                
+                if (sku && quantite && type) {
+                    produits.push({ sku, quantite: parseInt(quantite), type });
+                }
+            });
+            
+            if (produits.length === 0) {
+                alert('Veuillez ajouter au moins un produit à la commande.');
+                return;
+            }
+            
+            // Créer la commande
+            const commande = {
+                id: commandes.length + 1,
+                dateSaisie: new Date().toLocaleDateString('fr-FR'),
+                numeroCommande: `FR${nextCommandeNumber}`,
+                client,
+                commercial,
+                entrepot,
+                dateLivraison,
+                produits,
+                statut: 'saisie',
+                commentaire
+            };
+            
+            commandes.push(commande);
+            nextCommandeNumber++;
+            
+            afficherCommandes();
+            updateStats();
+            resetForm();
+            ajouterProduit(); // Ajouter un produit par défaut pour la prochaine commande
+            
+            alert(`Commande ${commande.numeroCommande} enregistrée avec succès !`);
+        });
+
+        // Afficher les commandes dans le tableau
+        function afficherCommandes() {
+            const tbody = document.getElementById('commandes-tbody');
+            tbody.innerHTML = '';
+            
+            commandes.forEach(commande => {
+                const row = document.createElement('tr');
+                
+                // Formater les produits
+                const produitsText = commande.produits.map(p => 
+                    `${p.sku} (${p.quantite}) - ${p.type}`
+                ).join('<br>');
+                
+                // Déterminer la classe CSS du statut
+                let statutClass = 'status-saisie';
+                if (commande.statut === 'en_cours') statutClass = 'status-en_cours';
+                if (commande.statut === 'livree') statutClass = 'status-livree';
+                if (commande.statut === 'annulee') statutClass = 'status-annulee';
+                
+                row.innerHTML = `
+                    <td>${commande.dateSaisie}</td>
+                    <td><strong>${commande.numeroCommande}</strong></td>
+                    <td>${commande.client}</td>
+                    <td>${commande.commercial}</td>
+                    <td>${produitsText}</td>
+                    <td>${commande.entrepot}</td>
+                    <td>${new Date(commande.dateLivraison).toLocaleDateString('fr-FR')}</td>
+                    <td><span class="${statutClass}">${commande.statut}</span></td>
+                    <td>${commande.commentaire || '-'}</td>
+                    <td>
+                        <select onchange="changerStatut(${commande.id}, this.value)">
+                            <option value="saisie" ${commande.statut === 'saisie' ? 'selected' : ''}>Saisie</option>
+                            <option value="en_cours" ${commande.statut === 'en_cours' ? 'selected' : ''}>En cours</option>
+                            <option value="livree" ${commande.statut === 'livree' ? 'selected' : ''}>Livrée</option>
+                            <option value="annulee" ${commande.statut === 'annulee' ? 'selected' : ''}>Annulée</option>
+                        </select>
+                        <button class="btn-danger" onclick="supprimerCommande(${commande.id})" style="margin-top: 5px; padding: 3px 8px; font-size: 12px;">🗑️</button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Changer le statut d'une commande
+        function changerStatut(id, nouveauStatut) {
+            const commande = commandes.find(c => c.id === id);
+            if (commande) {
+                commande.statut = nouveauStatut;
+                afficherCommandes();
+                updateStats();
+            }
+        }
+
+        // Supprimer une commande
+        function supprimerCommande(id) {
+            if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
+                commandes = commandes.filter(c => c.id !== id);
+                afficherCommandes();
+                updateStats();
+            }
+        }
+
+        // Mettre à jour les statistiques
+        function updateStats() {
+            const total = commandes.length;
+            const saisies = commandes.filter(c => c.statut === 'saisie').length;
+            const enCours = commandes.filter(c => c.statut === 'en_cours').length;
+            const livrees = commandes.filter(c => c.statut === 'livree').length;
+            const annulees = commandes.filter(c => c.statut === 'annulee').length;
+            
+            document.getElementById('total-commandes').textContent = total;
+            document.getElementById('commandes-cours').textContent = saisies + enCours;
+            document.getElementById('commandes-livrees').textContent = livrees;
+            document.getElementById('commandes-annulees').textContent = annulees;
+        }
+
+        // Exporter les commandes en Excel
+        function exporterExcel() {
+            if (commandes.length === 0) {
+                alert('Aucune commande à exporter.');
+                return;
+            }
+
+            // Créer les données pour l'export
+            const data = [];
+            
+            // En-têtes
+            data.push([
+                'Date de saisie',
+                'Numéro de commande',
+                'Client',
+                'Commercial',
+                'SKU',
+                'Quantité',
+                'Type produit',
+                'Entrepôt',
+                'Date de livraison',
+                'Statut',
+                'Commentaire'
+            ]);
+
+            // Données des commandes
+            commandes.forEach(commande => {
+                commande.produits.forEach((produit, index) => {
+                    data.push([
+                        commande.dateSaisie,
+                        commande.numeroCommande,
+                        index === 0 ? commande.client : '', // Afficher le client seulement sur la première ligne
+                        index === 0 ? commande.commercial : '',
+                        produit.sku,
+                        produit.quantite,
+                        produit.type,
+                        index === 0 ? commande.entrepot : '',
+                        index === 0 ? new Date(commande.dateLivraison).toLocaleDateString('fr-FR') : '',
+                        index === 0 ? commande.statut : '',
+                        index === 0 ? commande.commentaire : ''
+                    ]);
+                });
+            });
+
+            // Créer le fichier Excel
+            let csvContent = '';
+            data.forEach(row => {
+                csvContent += row.map(cell => {
+                    // Échapper les guillemets et entourer de guillemets si nécessaire
+                    if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+                        return '"' + cell.replace(/"/g, '""') + '"';
+                    }
+                    return cell;
+                }).join(',') + '\n';
+            });
+
+            // Créer et télécharger le fichier
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            
+            const dateExport = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            link.setAttribute('download', `commandes_adv_${dateExport}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert(`Export terminé ! Fichier sauvegardé : commandes_adv_${dateExport}.csv`);
+        }
+
+        // Initialiser avec un produit par défaut
+        ajouterProduit();
+        
+        // Fichier vide - prêt pour utilisation
+        updateStats();
+    </script>
+</body>
+</html>
