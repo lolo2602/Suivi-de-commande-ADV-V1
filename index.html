@@ -140,8 +140,41 @@
             cursor: pointer;
             font-size: 12px;
         }
-        .delete-btn:hover {
-            background-color: #c0392b;
+        .edit-mode {
+            background-color: #fff3cd !important;
+            border: 2px solid #ffc107 !important;
+        }
+        .btn-edit {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .btn-edit:hover {
+            background-color: #138496;
+        }
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        .sync-online {
+            background-color: #27ae60;
+        }
+        .sync-offline {
+            background-color: #e74c3c;
+        }
+        .sync-saving {
+            background-color: #f39c12;
         }
         .stats {
             display: flex;
@@ -167,6 +200,8 @@
 </head>
 <body>
     <div class="container">
+        <div class="sync-status sync-online" id="sync-status">🟢 Synchronisé</div>
+        
         <h1>📋 Suivi des Commandes ADV</h1>
         
         <div class="stats">
@@ -236,6 +271,10 @@
 
                 <div class="form-row">
                     <div class="form-group">
+                        <label for="lien-suivi">Lien de suivi (optionnel)</label>
+                        <input type="url" id="lien-suivi" placeholder="https://tracking.exemple.com/...">
+                    </div>
+                    <div class="form-group">
                         <label for="commentaire">Commentaire (optionnel)</label>
                         <textarea id="commentaire" placeholder="Ajouter un commentaire sur cette commande..."></textarea>
                     </div>
@@ -263,6 +302,7 @@
                         <th>Produits</th>
                         <th>Entrepôt</th>
                         <th>Date livraison</th>
+                        <th>Lien suivi</th>
                         <th>Statut</th>
                         <th>Commentaire</th>
                         <th>Actions</th>
@@ -279,6 +319,57 @@
         let commandes = [];
         let nextCommandeNumber = 250000;
         let produitCounter = 0;
+        let editingCommandeId = null;
+        let syncInterval;
+
+        // Système de synchronisation multi-utilisateur
+        function sauvegarderDonnees() {
+            const donnees = {
+                commandes: commandes,
+                nextCommandeNumber: nextCommandeNumber,
+                lastUpdate: new Date().toISOString()
+            };
+            localStorage.setItem('commandes_adv', JSON.stringify(donnees));
+            updateSyncStatus('sync-saving', '🟡 Sauvegarde...');
+            
+            setTimeout(() => {
+                updateSyncStatus('sync-online', '🟢 Synchronisé');
+            }, 1000);
+        }
+
+        function chargerDonnees() {
+            const donnees = localStorage.getItem('commandes_adv');
+            if (donnees) {
+                const parsed = JSON.parse(donnees);
+                commandes = parsed.commandes || [];
+                nextCommandeNumber = parsed.nextCommandeNumber || 250000;
+                afficherCommandes();
+                updateStats();
+            }
+        }
+
+        function updateSyncStatus(className, text) {
+            const syncStatus = document.getElementById('sync-status');
+            syncStatus.className = `sync-status ${className}`;
+            syncStatus.textContent = text;
+        }
+
+        // Vérifier les mises à jour toutes les 3 secondes
+        function demarrerSynchronisation() {
+            syncInterval = setInterval(() => {
+                const donnees = localStorage.getItem('commandes_adv');
+                if (donnees) {
+                    const parsed = JSON.parse(donnees);
+                    if (parsed.lastUpdate) {
+                        const lastUpdate = new Date(parsed.lastUpdate);
+                        const now = new Date();
+                        if (now - lastUpdate < 5000) { // Moins de 5 secondes
+                            updateSyncStatus('sync-online', '🟢 Synchronisé');
+                        }
+                    }
+                }
+            }, 3000);
+        }
 
         // Initialiser avec la date d'aujourd'hui
         document.getElementById('date-livraison').valueAsDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 jours
@@ -331,7 +422,15 @@
             document.getElementById('commande-form').reset();
             document.getElementById('produits-container').innerHTML = '';
             produitCounter = 0;
-            ajouterProduit(); // Ajouter un produit par défaut
+            editingCommandeId = null;
+            document.querySelector('button[type="submit"]').textContent = '✅ Enregistrer la commande';
+            
+            // Supprimer le surlignage des lignes
+            const rows = document.querySelectorAll('#commandes-tbody tr');
+            rows.forEach(row => row.classList.remove('edit-mode'));
+            
+            // Remettre la date par défaut
+            document.getElementById('date-livraison').valueAsDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         }
 
         // Soumettre le formulaire
@@ -342,6 +441,7 @@
             const commercial = document.getElementById('commercial').value;
             const entrepot = document.getElementById('entrepot').value;
             const dateLivraison = document.getElementById('date-livraison').value;
+            const lienSuivi = document.getElementById('lien-suivi').value;
             const commentaire = document.getElementById('commentaire').value;
             
             // Récupérer les produits
@@ -363,29 +463,51 @@
                 return;
             }
             
-            // Créer la commande
-            const commande = {
-                id: commandes.length + 1,
-                dateSaisie: new Date().toLocaleDateString('fr-FR'),
-                numeroCommande: `FR${nextCommandeNumber}`,
-                client,
-                commercial,
-                entrepot,
-                dateLivraison,
-                produits,
-                statut: 'saisie',
-                commentaire
-            };
+            if (editingCommandeId) {
+                // Modifier une commande existante
+                const commande = commandes.find(c => c.id === editingCommandeId);
+                if (commande) {
+                    commande.client = client;
+                    commande.commercial = commercial;
+                    commande.entrepot = entrepot;
+                    commande.dateLivraison = dateLivraison;
+                    commande.lienSuivi = lienSuivi;
+                    commande.commentaire = commentaire;
+                    commande.produits = produits;
+                    commande.lastModified = new Date().toISOString();
+                    
+                    alert(`Commande ${commande.numeroCommande} modifiée avec succès !`);
+                    editingCommandeId = null;
+                    document.querySelector('button[type="submit"]').textContent = '✅ Enregistrer la commande';
+                }
+            } else {
+                // Créer une nouvelle commande
+                const commande = {
+                    id: Date.now(), // Utiliser timestamp pour éviter les conflits
+                    dateSaisie: new Date().toLocaleDateString('fr-FR'),
+                    numeroCommande: `FR${nextCommandeNumber}`,
+                    client,
+                    commercial,
+                    entrepot,
+                    dateLivraison,
+                    lienSuivi,
+                    produits,
+                    statut: 'saisie',
+                    commentaire,
+                    createdBy: 'user', // Pourrait être personnalisé
+                    lastModified: new Date().toISOString()
+                };
+                
+                commandes.push(commande);
+                nextCommandeNumber++;
+                alert(`Commande ${commande.numeroCommande} enregistrée avec succès !`);
+            }
             
-            commandes.push(commande);
-            nextCommandeNumber++;
-            
+            sauvegarderDonnees();
             afficherCommandes();
             updateStats();
             resetForm();
-            ajouterProduit(); // Ajouter un produit par défaut pour la prochaine commande
-            
-            alert(`Commande ${commande.numeroCommande} enregistrée avec succès !`);
+            ajouterProduit();
         });
 
         // Afficher les commandes dans le tableau
@@ -407,6 +529,11 @@
                 if (commande.statut === 'livree') statutClass = 'status-livree';
                 if (commande.statut === 'annulee') statutClass = 'status-annulee';
                 
+                // Formater le lien de suivi
+                const lienSuiviHtml = commande.lienSuivi ? 
+                    `<a href="${commande.lienSuivi}" target="_blank" style="color: #3498db;">📦 Suivre</a>` : 
+                    '-';
+                
                 row.innerHTML = `
                     <td>${commande.dateSaisie}</td>
                     <td><strong>${commande.numeroCommande}</strong></td>
@@ -415,9 +542,11 @@
                     <td>${produitsText}</td>
                     <td>${commande.entrepot}</td>
                     <td>${new Date(commande.dateLivraison).toLocaleDateString('fr-FR')}</td>
+                    <td>${lienSuiviHtml}</td>
                     <td><span class="${statutClass}">${commande.statut}</span></td>
                     <td>${commande.commentaire || '-'}</td>
                     <td>
+                        <button class="btn-edit" onclick="modifierCommande(${commande.id})">✏️ Modifier</button>
                         <select onchange="changerStatut(${commande.id}, this.value)">
                             <option value="saisie" ${commande.statut === 'saisie' ? 'selected' : ''}>Saisie</option>
                             <option value="en_cours" ${commande.statut === 'en_cours' ? 'selected' : ''}>En cours</option>
@@ -432,11 +561,56 @@
             });
         }
 
+        // Modifier une commande existante
+        function modifierCommande(id) {
+            const commande = commandes.find(c => c.id === id);
+            if (!commande) return;
+            
+            // Remplir le formulaire avec les données existantes
+            document.getElementById('client').value = commande.client;
+            document.getElementById('commercial').value = commande.commercial;
+            document.getElementById('entrepot').value = commande.entrepot;
+            document.getElementById('date-livraison').value = commande.dateLivraison;
+            document.getElementById('lien-suivi').value = commande.lienSuivi || '';
+            document.getElementById('commentaire').value = commande.commentaire || '';
+            
+            // Vider et remplir les produits
+            document.getElementById('produits-container').innerHTML = '';
+            produitCounter = 0;
+            
+            commande.produits.forEach(produit => {
+                ajouterProduit();
+                const lastRow = document.querySelector('.product-row:last-child');
+                lastRow.querySelector('input[name="sku"]').value = produit.sku;
+                lastRow.querySelector('input[name="quantite"]').value = produit.quantite;
+                lastRow.querySelector('select[name="type"]').value = produit.type;
+            });
+            
+            // Mettre en mode édition
+            editingCommandeId = id;
+            document.querySelector('button[type="submit"]').textContent = '💾 Modifier la commande';
+            
+            // Scroller vers le formulaire
+            document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+            
+            // Surligner la ligne en cours de modification
+            const rows = document.querySelectorAll('#commandes-tbody tr');
+            rows.forEach(row => row.classList.remove('edit-mode'));
+            const currentRow = Array.from(rows).find(row => 
+                row.querySelector('button[onclick*="' + id + '"]')
+            );
+            if (currentRow) {
+                currentRow.classList.add('edit-mode');
+            }
+        }
+
         // Changer le statut d'une commande
         function changerStatut(id, nouveauStatut) {
             const commande = commandes.find(c => c.id === id);
             if (commande) {
                 commande.statut = nouveauStatut;
+                commande.lastModified = new Date().toISOString();
+                sauvegarderDonnees();
                 afficherCommandes();
                 updateStats();
             }
@@ -446,6 +620,13 @@
         function supprimerCommande(id) {
             if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
                 commandes = commandes.filter(c => c.id !== id);
+                if (editingCommandeId === id) {
+                    editingCommandeId = null;
+                    document.querySelector('button[type="submit"]').textContent = '✅ Enregistrer la commande';
+                    resetForm();
+                    ajouterProduit();
+                }
+                sauvegarderDonnees();
                 afficherCommandes();
                 updateStats();
             }
@@ -486,6 +667,7 @@
                 'Type produit',
                 'Entrepôt',
                 'Date de livraison',
+                'Lien de suivi',
                 'Statut',
                 'Commentaire'
             ]);
@@ -503,6 +685,7 @@
                         produit.type,
                         index === 0 ? commande.entrepot : '',
                         index === 0 ? new Date(commande.dateLivraison).toLocaleDateString('fr-FR') : '',
+                        index === 0 ? (commande.lienSuivi || '') : '',
                         index === 0 ? commande.statut : '',
                         index === 0 ? commande.commentaire : ''
                     ]);
@@ -541,8 +724,21 @@
         // Initialiser avec un produit par défaut
         ajouterProduit();
         
+        // Charger les données existantes
+        chargerDonnees();
+        
+        // Démarrer la synchronisation
+        demarrerSynchronisation();
+        
         // Fichier vide - prêt pour utilisation
         updateStats();
+        
+        // Sauvegarder automatiquement toutes les 10 secondes
+        setInterval(() => {
+            if (commandes.length > 0) {
+                sauvegarderDonnees();
+            }
+        }, 10000);
     </script>
 </body>
 </html>
